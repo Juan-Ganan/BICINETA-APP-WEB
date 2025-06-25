@@ -10,13 +10,14 @@ import os
 import threading
 import time
 
+# === CONFIGURACIÓN GENERAL ===
 app = Flask(__name__)
 app.secret_key = 'super_secret_key'  # Necesario para sesiones
-
-# Credenciales de login (hardcodeadas para simplicidad)
 USERS = {'admin': 'password123'}
+CSV_FILE = "sensor_data.csv"
+ESTADO_FILE = "estado.json"
 
-# Configuración del broker MQTT
+# === CONFIGURACIÓN MQTT ===
 MQTT_BROKER = "02c9970343eb456bac87e5836a2905c3.s1.eu.hivemq.cloud"
 MQTT_PORT = 8883
 MQTT_USERNAME = "GCA_DAQ"
@@ -27,23 +28,16 @@ MQTT_TOPICS = [
 ]
 MQTT_TOPIC_PUB = "control/commands"
 
-# Almacenar datos de sensores (máximo 50 puntos por sensor)
+# === VARIABLES DE ESTADO ===
 sensor_data = defaultdict(lambda: [])
 digital_twin_data = defaultdict(lambda: [])
 MAX_POINTS = 50
-
-# Almacenamiento temporal para los últimos valores de cada tópico
 latest_values = {topic: {"value": None, "timestamp": None} for topic in MQTT_TOPICS}
 latest_predictions = {"predicted_current": None, "predicted_speed": None}
+current1 = speed1 = voltage1 = acceleration1 = map1 = 0
+global_data_collection_enabled = False
 
-# Variables para el gemelo digital
-current1 = 0
-speed1 = 0
-voltage1 = 0
-acceleration1 = 0
-map1 = 0
-
-# Matriz theta del modelo del gemelo digital
+# === MATRIZ DEL GEMELO DIGITAL ===
 theta = np.array([
     [-0.95,  0.00],
     [-1.84, -0.56],
@@ -57,10 +51,62 @@ theta = np.array([
     [ 0.48, -0.08]
 ])
 
-# Archivo CSV para almacenar datos
-CSV_FILE = "sensor_data.csv"
+# === FUNCIONES DE PERSISTENCIA DE ESTADO ===
+def cargar_estado_desde_json():
+    global global_data_collection_enabled
+    if os.path.exists(ESTADO_FILE):
+        with open(ESTADO_FILE, 'r') as f:
+            estado = json.load(f)
+            global_data_collection_enabled = estado.get("enabled", False)
+    else:
+        global_data_collection_enabled = False
 
-# Configuración del cliente MQTT
+def guardar_estado_en_json(enabled):
+    with open(ESTADO_FILE, 'w') as f:
+        json.dump({"enabled": enabled}, f)
+
+# === FUNCIONES DEL GEMELO DIGITAL ===
+def compute_digital_twin():
+    global current1, speed1, voltage1, acceleration1, map1
+    Y = np.array([[speed1, current1, speed1, current1]])
+    U = np.array([[acceleration1, voltage1, map1, acceleration1, voltage1, map1]])
+    H = np.hstack((-Y, U))
+    Yest = H @ theta
+    return Yest
+
+# === FUNCIONES DE ALMACENAMIENTO DE DATOS ===
+def save_to_csv():
+    if not global_data_collection_enabled:
+        return
+
+    data_row = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "voltage": latest_values["voltage"]["value"],
+        "current": latest_values["current"]["value"],
+        "speed": latest_values["speed"]["value"],
+        "acceleration": latest_values["acceleration"]["value"],
+        "temperature": latest_values["temperature"]["value"],
+        "altitud": latest_values["altitud"]["value"],
+        "latitude": latest_values["latitude"]["value"],
+        "longitude": latest_values["longitude"]["value"],
+        "predicted_current": latest_predictions["predicted_current"],
+        "predicted_speed": latest_predictions["predicted_speed"]
+    }
+
+    df = pd.DataFrame([data_row])
+    if not os.path.exists(CSV_FILE):
+        df.to_csv(CSV_FILE, index=False)
+    else:
+        df.to_csv(CSV_FILE, mode='a', header=False, index=False)
+    print(f"Datos guardados en {CSV_FILE}: {data_row}")
+
+def periodic_csv_writer():
+    while True:
+        if any(latest_values[topic]["value"] is not None for topic in MQTT_TOPICS):
+            save_to_csv()
+        time.sleep(10)
+
+# === MQTT ===
 def on_connect(client, userdata, flags, rc):
     print(f"Código de conexión: {rc}")
     if rc == 0:
@@ -77,16 +123,13 @@ def on_message(client, userdata, msg):
         value = float(msg.payload.decode())
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Almacenar en memoria
         sensor_data[msg.topic].append({"time": timestamp, "value": value})
         if len(sensor_data[msg.topic]) > MAX_POINTS:
             sensor_data[msg.topic].pop(0)
 
-        # Actualizar últimos valores
         latest_values[msg.topic]["value"] = value
         latest_values[msg.topic]["timestamp"] = timestamp
 
-        # Asignar a variables del gemelo
         if msg.topic == "current":
             current1 = value
         elif msg.topic == "speed":
@@ -118,40 +161,8 @@ def on_message(client, userdata, msg):
     except ValueError:
         print(f"Valor no numérico recibido en {msg.topic}: {msg.payload.decode()}")
 
-def compute_digital_twin():
-    global current1, speed1, voltage1, acceleration1, map1
-    Y = np.array([[speed1, current1, speed1, current1]])
-    U = np.array([[acceleration1, voltage1, map1, acceleration1, voltage1, map1]])
-    H = np.hstack((-Y, U))
-    Yest = H @ theta
-    return Yest
-
-def save_to_csv():
-    data_row = {
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "voltage": latest_values["voltage"]["value"],
-        "current": latest_values["current"]["value"],
-        "speed": latest_values["speed"]["value"],
-        "acceleration": latest_values["acceleration"]["value"],
-        "temperature": latest_values["temperature"]["value"],
-        "altitud": latest_values["altitud"]["value"],
-        "latitude": latest_values["latitude"]["value"],
-        "longitude": latest_values["longitude"]["value"],
-        "predicted_current": latest_predictions["predicted_current"],
-        "predicted_speed": latest_predictions["predicted_speed"]
-    }
-    df = pd.DataFrame([data_row])
-    if not os.path.exists(CSV_FILE):
-        df.to_csv(CSV_FILE, index=False)
-    else:
-        df.to_csv(CSV_FILE, mode='a', header=False, index=False)
-    print(f"Datos guardados en {CSV_FILE}: {data_row}")
-
-def periodic_csv_writer():
-    while True:
-        if any(latest_values[topic]["value"] is not None for topic in MQTT_TOPICS):
-            save_to_csv()
-        time.sleep(10)
+# === INICIALIZACIÓN MQTT Y HILO ===
+cargar_estado_desde_json()
 
 client = mqtt.Client()
 client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
@@ -167,17 +178,38 @@ except Exception as e:
 
 threading.Thread(target=periodic_csv_writer, daemon=True).start()
 
+# === RUTAS FLASK ===
 @app.route('/', methods=['GET', 'POST'])
 def login():
+    global global_data_collection_enabled
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
         if username in USERS and USERS[username] == password:
             session['logged_in'] = True
+            session['data_collection_enabled'] = global_data_collection_enabled
             return redirect(url_for('menu'))
         else:
             return render_template('login.html', error="Credenciales inválidas")
     return render_template('login.html')
+
+@app.route('/toggle_data_collection', methods=['POST'])
+def toggle_data_collection():
+    global global_data_collection_enabled
+    if not session.get('logged_in'):
+        return jsonify({"error": "No autenticado"}), 401
+    enabled = session.get('data_collection_enabled', global_data_collection_enabled)
+    new_status = not enabled
+    session['data_collection_enabled'] = new_status
+    global_data_collection_enabled = new_status
+    guardar_estado_en_json(new_status)
+    return jsonify({"enabled": new_status})
+
+@app.route('/get_data_collection_status', methods=['GET'])
+def get_data_collection_status():
+    if not session.get('logged_in'):
+        return jsonify({"error": "No autenticado"}), 401
+    return jsonify({"enabled": session.get('data_collection_enabled', False)})
 
 @app.route('/menu')
 def menu():
@@ -242,6 +274,7 @@ def settings():
 @app.route('/logout')
 def logout():
     session.pop('logged_in', None)
+    session.pop('data_collection_enabled', None)
     return redirect(url_for('login'))
 
 @app.route('/publish', methods=['POST'])
@@ -271,5 +304,6 @@ def get_digital_twin_data():
         return jsonify({"error": "No autenticado"}), 401
     return jsonify(dict(digital_twin_data))
 
+# === MAIN ===
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
