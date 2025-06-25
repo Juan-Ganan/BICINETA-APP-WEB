@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+  <html lang="es">
+  <head>
+      <meta charset="UTF-8">
+      <title>Gemelo Digital</title>
+      <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          .chart-container { width: 45%; display: inline-block; margin: 10px; }
+          @media (max-width: 768px) { .chart-container { width: 100%; } }
+          #publish-form { margin-bottom: 20px; }
+      </style>
+  </head>
+  <body>
+      <h1>Gemelo Digital</h1>
+      <div id="publish-form">
+          <h2>Publicar Mensaje</h2>
+          <input type="text" id="topic" placeholder="Tópico (default: control/commands)" value="control/commands">
+          <input type="text" id="message" placeholder="Mensaje">
+          <button onclick="publishMessage()">Enviar</button>
+      </div>
+      <h2>Entradas</h2>
+      <div id="input-charts">
+          <div class="chart-container"><canvas id="accelerationChart"></canvas></div>
+          <div class="chart-container"><canvas id="voltageChart"></canvas></div>
+          <div class="chart-container"><canvas id="altitudChart"></canvas></div>
+      </div>
+      <h2>Salidas Predichas</h2>
+      <div id="output-charts">
+          <div class="chart-container"><canvas id="predictedCurrentChart"></canvas></div>
+          <div class="chart-container"><canvas id="predictedSpeedChart"></canvas></div>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <script>
+          const charts = {
+              acceleration: new Chart(document.getElementById('accelerationChart').getContext('2d'), {
+                  type: 'line',
+                  data: { labels: [], datasets: [{ label: 'Aceleración (V)', data: [], borderColor: '#FFCE56', fill: false }] },
+                  options: { responsive: true, scales: { y: { beginAtZero: true, title: { display: true, text: 'Aceleración (V)' } } } }
+              }),
+              voltage: new Chart(document.getElementById('voltageChart').getContext('2d'), {
+                  type: 'line',
+                  data: { labels: [], datasets: [{ label: 'Voltaje (V)', data: [], borderColor: '#FF6384', fill: false }] },
+                  options: { responsive: true, scales: { y: { beginAtZero: true, title: { display: true, text: 'Voltaje (V)' } } } }
+              }),
+              altitud: new Chart(document.getElementById('altitudChart').getContext('2d'), {
+                  type: 'line',
+                  data: { labels: [], datasets: [{ label: 'Altitud (m)', data: [], borderColor: '#FF9F40', fill: false }] },
+                  options: { responsive: true, scales: { y: { beginAtZero: false, title: { display: true, text: 'Altitud (m)' } } } }
+              }),
+              predictedCurrent: new Chart(document.getElementById('predictedCurrentChart').getContext('2d'), {
+                  type: 'line',
+                  data: { labels: [], datasets: [{ label: 'Corriente Predicha (A)', data: [], borderColor: '#36A2EB', fill: false }] },
+                  options: { responsive: true, scales: { y: { beginAtZero: true, title: { display: true, text: 'Corriente Predicha (A)' } } } }
+              }),
+              predictedSpeed: new Chart(document.getElementById('predictedSpeedChart').getContext('2d'), {
+                  type: 'line',
+                  data: { labels: [], datasets: [{ label: 'Velocidad Predicha (RPM)', data: [], borderColor: '#4BC0C0', fill: false }] },
+                  options: { responsive: true, scales: { y: { beginAtZero: true, title: { display: true, text: 'Velocidad Predicha (RPM)' } } } }
+              })
+          };
+
+          async function updateCharts() {
+              try {
+                  const response = await fetch('/data');
+                  const sensorData = await response.json();
+                  const twinResponse = await fetch('/digital_twin_data');
+                  const twinData = await twinResponse.json();
+                  console.log('Datos de sensores:', sensorData);
+                  console.log('Datos del gemelo digital:', twinData);
+
+                  // Actualizar gráficos de entradas
+                  ['acceleration', 'voltage', 'altitud'].forEach(topic => {
+                      if (sensorData[topic]) {
+                          console.log(`Actualizando ${topic}:`, sensorData[topic]);
+                          charts[topic].data.labels = sensorData[topic].map(d => d.time);
+                          charts[topic].data.datasets[0].data = sensorData[topic].map(d => d.value);
+                          charts[topic].update();
+                      } else {
+                          console.log(`Sin datos para ${topic}`);
+                      }
+                  });
+
+                  // Actualizar gráficos de salidas predichas
+                  ['predictedCurrent', 'predictedSpeed'].forEach(topic => {
+                      if (twinData[topic]) {
+                          console.log(`Actualizando ${topic}:`, twinData[topic]);
+                          charts[topic].data.labels = twinData[topic].map(d => d.time);
+                          charts[topic].data.datasets[0].data = twinData[topic].map(d => d.value);
+                          charts[topic].update();
+                      } else {
+                          console.log(`Sin datos para ${topic}`);
+                      }
+                  });
+              } catch (error) {
+                  console.error('Error al actualizar gráficos:', error);
+              }
+          }
+
+          async function publishMessage() {
+              const topic = document.getElementById('topic').value;
+              const message = document.getElementById('message').value;
+              try {
+                  const response = await fetch('/publish', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ topic, message })
+                  });
+                  const result = await response.json();
+                  alert(JSON.stringify(result));
+              } catch (error) {
+                  console.error('Error al publicar mensaje:', error);
+                  alert('Error al publicar mensaje');
+              }
+          }
+
+          // Actualizar gráficos cada 5 segundos
+          setInterval(updateCharts, 500);
+          // Cargar datos iniciales
+          updateCharts();
+      </script>
+  </body>
+  </html>

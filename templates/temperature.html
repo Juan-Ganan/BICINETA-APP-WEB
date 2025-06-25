@@ -1,0 +1,115 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Temperatura de Batería</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f0f0f0; text-align: center; padding-top: 1%; }
+        .chart-container { width: 80%; margin: 20px auto; }
+        #publish-form { margin-bottom: 20px; }
+        input, button { padding: 8px; margin: 5px; }
+        button { background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #45a049; }
+        .back { background-color: #2196F3; }
+        .back:hover { background-color: #1976D2; }
+        #Title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            width: 100%;
+            padding: 0 20px;
+            box-sizing: border-box;
+        }
+
+        #Title h1 {
+            margin: 0 auto;
+            color: #696767;
+            text-align: center;
+            flex-grow: 1;
+        }
+
+        .logo {
+            position: absolute;
+            width: 10%;
+            height: auto;
+            margin-left: auto;
+            right: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="Title">
+        <h1>Temperatura de la bateria (°C)</h1>
+        <img src="/static/Images/LogoGCA.png" alt="Logo" class="logo">
+    </div>
+    <div class="chart-container"><canvas id="temperatureChart"></canvas></div>
+    <button class="back" onclick="window.location.href='/menu'">Volver al Menú</button>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const chart = new Chart(document.getElementById('temperatureChart').getContext('2d'), {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Temperatura (°C)', data: [], borderColor: '#9966FF', fill: false }] },
+            options: { responsive: true, scales: { y: { beginAtZero: true, title: { display: true, text: 'Temperatura (°C)' } } } }
+        });
+
+        async function updateChart() {
+            try {
+                const response = await fetch('/data');
+                const data = await response.json();
+                if (data['temperature']) {
+                    chart.data.labels = data['temperature'].map(d => d.time);
+                    chart.data.datasets[0].data = data['temperature'].map(d => d.value);
+                    chart.update();
+                } else {
+                    console.log('Sin datos para temperatura');
+                }
+            } catch (error) {
+                console.error('Error al actualizar gráfica:', error);
+            }
+        }
+        setInterval(updateChart, 500);
+        updateChart();
+    </script>
+</body>
+</html>

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Localización en Tiempo Real</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      width: 100%;
+      display: flex;
+      justify-content: flex-end;
+      padding: 10px 20px;
+    }
+
+    header img {
+      height: 50px;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: flex-start;
+      width: 100%;
+      max-width: 1200px;
+      padding: 20px;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+
+    #map {
+      flex: 1;
+      height: 500px;
+      min-width: 300px;
+      border-radius: 15px;
+      overflow: hidden;
+    }
+
+    .info-panel {
+      width: 250px;
+      min-height: 200px;
+      background-color: white;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .info-panel p {
+      font-size: 18px;
+      margin: 8px 0;
+    }
+
+    .button-wrapper {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      margin: 30px 0;
+    }
+
+    .back-button {
+      padding: 12px 24px;
+      background-color: #2196F3;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      transition: background-color 0.2s ease;
+    }
+
+    .back-button:hover {
+      background-color: #1976D2;
+    }
+
+    .bicycle-icon {
+      width: 100px;
+      height: 100px;
+      display: block;
+      transform: translate(-50%, -50%);
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .info-panel {
+        width: 90%;
+        align-items: center;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="/static/Images/LogoGCA.png" alt="Logo" />
+  </header>
+
+  <div class="container">
+    <div id="map"></div>
+    <div class="info-panel">
+      <p id="alt">Altitud: --</p>
+      <p id="lat">Latitud: --</p>
+      <p id="lon">Longitud: --</p>
+    </div>
+  </div>
+
+  <div class="button-wrapper">
+    <button class="back-button" onclick="window.location.href='/menu'">Volver al Menú</button>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+  <script>
+    let map, marker, polyline;
+    let pathCoords = [];
+
+    const bicycleIcon = L.divIcon({
+      html: `
+        <model-viewer 
+          class="bicycle-icon"
+          src="/static/Models/Bicineta.glb" 
+          alt="Bicicleta 3D" 
+          auto-rotate
+          camera-controls
+        ></model-viewer>
+      `,
+      className: "",
+      iconSize: [100, 100],
+      iconAnchor: [50, 50],
+    });
+
+    function initMap(lat, lon) {
+      map = L.map("map").setView([lat, lon], 20);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap contributors"
+      }).addTo(map);
+
+      marker = L.marker([lat, lon], { icon: bicycleIcon }).addTo(map);
+      polyline = L.polyline([], { color: "blue", weight: 4 }).addTo(map);
+    }
+
+    function updateModelRotation(angle) {
+      const modelViewer = marker.getElement().querySelector("model-viewer");
+      if (modelViewer) {
+        modelViewer.setAttribute("orientation", `0 0 ${angle}deg`);
+      }
+    }
+
+    function getBearing(lat1, lon1, lat2, lon2) {
+      const toRad = deg => deg * Math.PI / 180;
+      const toDeg = rad => rad * 180 / Math.PI;
+      const dLon = toRad(lon2 - lon1);
+      const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+                Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+      return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    let lastLat = null, lastLon = null;
+
+    async function fetchData() {
+      try {
+        const res = await fetch('/data');
+        const data = await res.json();
+
+        const lat = parseFloat(data?.latitude?.at(-1)?.value || 0);
+        const lon = parseFloat(data?.longitude?.at(-1)?.value || 0);
+        const alt = parseFloat(data?.altitud?.at(-1)?.value || 0);
+
+        if (!map) {
+          initMap(lat, lon);
+        }
+
+        document.getElementById("lat").innerText = `Latitud: ${lat.toFixed(6)}`;
+        document.getElementById("lon").innerText = `Longitud: ${lon.toFixed(6)}`;
+        document.getElementById("alt").innerText = `Altitud: ${alt.toFixed(2)} m`;
+
+        const newPos = [lat, lon];
+        marker.setLatLng(newPos);
+        map.panTo(newPos);
+        pathCoords.push(newPos);
+        polyline.setLatLngs(pathCoords);
+
+        if (lastLat !== null && lastLon !== null) {
+          const angle = getBearing(lastLat, lastLon, lat, lon);
+          updateModelRotation(angle);
+        }
+
+        lastLat = lat;
+        lastLon = lon;
+      } catch (e) {
+        console.error("Error al obtener datos:", e);
+      }
+    }
+
+    setInterval(fetchData, 500);
+  </script>
+</body>
+</html>

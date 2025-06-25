@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Información General</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+            padding-top: 1%;
+        }
+
+        #Title {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        #Title h1 {
+            flex-grow: 1;
+            text-align: center;
+            margin: 0;
+            color: #696767;
+        }
+
+        .logo {
+            position: absolute;
+            width: 10%;
+            height: auto;
+            margin-left: auto;
+            right: 0;
+        }
+
+        #charts {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        .chart-container {
+            width: 45%;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        #publish-form {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        input, button {
+            padding: 8px;
+            margin: 5px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .back {
+            background-color: #2196F3;
+        }
+
+        .back:hover {
+            background-color: #1976D2;
+        }
+
+        @media (orientation: portrait), (max-width: 768px) {
+            .chart-container {
+                width: 100% !important;
+            }
+
+            #Title {
+                flex-direction: column;
+            }
+
+            .logo {
+                margin: 10px auto 0 auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="Title">
+        <h1>Información General</h1>
+        <img src="/static/Images/LogoGCA.png" alt="Logo" class="logo">
+    </div>
+    
+    <div id="charts">
+        <div class="chart-container"><canvas id="accelerationChart"></canvas></div>
+        <div class="chart-container"><canvas id="voltageChart"></canvas></div>
+        <div class="chart-container"><canvas id="currentChart"></canvas></div>
+        <div class="chart-container"><canvas id="temperatureChart"></canvas></div>
+        <div class="chart-container"><canvas id="speedChart"></canvas></div>
+        <div class="chart-container"><canvas id="altitudChart"></canvas></div>
+    </div>
+
+    <div style="text-align: center; margin-top: 20px;">
+        <button class="back" onclick="window.location.href='/menu'">Volver al Menú</button>
+    </div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const charts = {
+            acceleration: new Chart(document.getElementById('accelerationChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Aceleración (V)',
+                        data: [],
+                        borderColor: '#FFCE56',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Aceleración (V)' }
+                        }
+                    }
+                }
+            }),
+            voltage: new Chart(document.getElementById('voltageChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Voltaje (V)',
+                        data: [],
+                        borderColor: '#FF6384',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Voltaje (V)' }
+                        }
+                    }
+                }
+            }),
+            current: new Chart(document.getElementById('currentChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Corriente (A)',
+                        data: [],
+                        borderColor: '#36A2EB',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Corriente (A)' }
+                        }
+                    }
+                }
+            }),
+            temperature: new Chart(document.getElementById('temperatureChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Temperatura (°C)',
+                        data: [],
+                        borderColor: '#9966FF',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Temperatura (°C)' }
+                        }
+                    }
+                }
+            }),
+            speed: new Chart(document.getElementById('speedChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Velocidad (RPM)',
+                        data: [],
+                        borderColor: '#4BC0C0',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Velocidad (RPM)' }
+                        }
+                    }
+                }
+            }),
+            altitud: new Chart(document.getElementById('altitudChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Altitud (m)',
+                        data: [],
+                        borderColor: '#FF9F40',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: { display: true, text: 'Altitud (m)' }
+                        }
+                    }
+                }
+            })
+        };
+
+        async function updateCharts() {
+            try {
+                const response = await fetch('/data');
+                const data = await response.json();
+                console.log('Datos de sensores:', data);
+                for (const topic in charts) {
+                    if (data[topic]) {
+                        charts[topic].data.labels = data[topic].map(d => d.time);
+                        charts[topic].data.datasets[0].data = data[topic].map(d => d.value);
+                        charts[topic].update();
+                    } else {
+                        console.log(`Sin datos para ${topic}`);
+                    }
+                }
+            } catch (error) {
+                console.error('Error al actualizar gráficos:', error);
+            }
+        }
+
+        setInterval(updateCharts, 500);
+        updateCharts();
+    </script>
+</body>
+</html>

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menú Principal</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+            background-color: #f0f0f0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+
+        .header {
+            position: relative;
+            margin-bottom: 30px;
+            text-align: center;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: clamp(20px, 4vw, 28px);
+            color: #333;
+        }
+
+        .logo {
+            position: absolute;
+            top: 0;
+            right: 0;
+            max-height: 60px;
+            height: auto;
+            width: auto;
+            max-width: 150px;
+        }
+
+        .menu-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .icon-button {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background-color: #ffffff;
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            min-height: 120px;
+        }
+
+        .icon-button:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+
+        .icon-button img {
+            width: 40px;
+            height: 40px;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+
+        .icon-button span {
+            font-size: 16px;
+            color: #333;
+            text-align: center;
+            line-height: 1.3;
+        }
+
+        .logout {
+            margin-top: 30px;
+            background-color: #ffffff;
+            color: #d32f2f;
+            border: 2px solid #d32f2f;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            max-width: 200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .logout:hover {
+            background-color: #d32f2f;
+            color: white;
+        }
+
+        /* Tablets */
+        @media (max-width: 768px) {
+            body {
+                padding: 15px;
+            }
+
+            .menu-container {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+            }
+
+            .icon-button {
+                padding: 15px;
+                min-height: 100px;
+            }
+
+            .icon-button img {
+                width: 35px;
+                height: 35px;
+            }
+
+            .icon-button span {
+                font-size: 14px;
+            }
+
+            .header {
+                height: 50px;
+                margin-bottom: 25px;
+            }
+
+            .logo {
+                max-height: 50px;
+                max-width: 120px;
+            }
+        }
+
+        /* Móviles */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            .header {
+                flex-direction: column;
+                height: auto;
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+
+            .logo {
+                position: static;
+                margin: 0;
+                max-height: 45px;
+                max-width: 100px;
+            }
+
+            .menu-container {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .icon-button {
+                padding: 18px;
+                min-height: 90px;
+            }
+
+            .icon-button img {
+                width: 32px;
+                height: 32px;
+                margin-bottom: 8px;
+            }
+
+            .icon-button span {
+                font-size: 14px;
+            }
+
+            .logout {
+                margin-top: 25px;
+                padding: 10px 20px;
+                font-size: 14px;
+                width: 100%;
+                max-width: none;
+            }
+        }
+
+        /* Móviles muy pequeños */
+        @media (max-width: 360px) {
+            .header h1 {
+                font-size: 18px;
+            }
+
+            .logo {
+                max-height: 40px;
+                max-width: 80px;
+            }
+
+            .icon-button {
+                padding: 15px;
+                min-height: 80px;
+            }
+
+            .icon-button img {
+                width: 28px;
+                height: 28px;
+            }
+
+            .icon-button span {
+                font-size: 13px;
+            }
+        }
+
+        /* Pantallas grandes */
+        @media (min-width: 1200px) {
+            .menu-container {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 style="color: #696767">Menú Principal</h1>
+            <img src="/static/Images/LogoGCA.png" alt="Logo" class="logo">
+        </div>
+        <div class="menu-container">
+            <button class="icon-button" onclick="window.location.href='/general_info'">
+                <img src="/static/Icons/analisis-de-usuarios.png" alt="Información">
+                <span>Información General</span>
+            </button>
+            <button class="icon-button" onclick="window.location.href='/acceleration'">
+                <img src="/static/Icons/rendimiento.png" alt="Aceleración">
+                <span>Aceleración</span>
+            </button>
+            <button class="icon-button" onclick="window.location.href='/voltage'">
+                <img src="/static/Icons/bateria.png" alt="Voltaje">
+                <span>Voltaje</span>
+            </button>
+            <button class="icon-button" onclick="window.location.href='/current'">
+                <img src="/static/Icons/corriente-electrica.png" alt="Corriente">
+                <span>Corriente</span>
+            </button>
+            <button class="icon-button" onclick="window.location.href='/temperature'">
+                <img src="/static/Icons/temperatura-alta.png" alt="Temperatura">
+                <span>Temperatura</span>
+            </button>
+            <button class="icon-button" onclick="window.location.href='/speed'">
+                <img src="/static/Icons/velocidad.png" alt="Velocidad">
+                <span>Velocidad</span>
+            </button>
+            <button class="icon-button" onclick="window.location.href='/location'">
+                <img src="/static/Icons/colombia.png" alt="Ubicación">
+                <span>Ubicación</span>
+            </button>
+            <button class="icon-button" onclick="window.location.href='/digital_twin'">
+                <img src="/static/Icons/digital-twin.png" alt="Gemelo Digital">
+                <span>Gemelo Digital</span>
+            </button>
+            <button class="icon-button" onclick="window.location.href='/settings'">
+                <img src="/static/Icons/ajustes.png" alt="Configuración">
+                <span>Configuración</span>
+            </button>
+        </div>
+        
+        <button class="logout" onclick="window.location.href='/logout'">Cerrar Sesión</button>
+    </div>
+</body>
+</html>

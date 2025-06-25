@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemelo Digital</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 2px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            box-sizing: border-box;
+            padding-top: 1%;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+
+        }
+
+        #Title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            width: 100%;
+            padding: 0 20px;
+            box-sizing: border-box;
+        }
+
+        #Title h1 {
+            margin: 0 auto;
+            color: #696767;
+            text-align: center;
+            flex-grow: 1;
+        }
+
+        .logo {
+            position: absolute;
+            width: 10%;
+            height: auto;
+            margin-left: auto;
+            right: 20px;
+        }
+
+        #main-content {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: stretch;
+            gap: 20px;
+            width: 100%;
+            max-width: 1300px;
+        }
+
+        .column {
+            flex: 1 1 300px;
+            max-width: 100%;
+            background-color: white;
+            padding: 10px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-evenly;
+        }
+
+        .chart-container {
+            width: 100%;
+            margin: 10px 0;
+            flex-grow: 1;
+        }
+
+        model-viewer {
+            width: 100%;
+            height: 400px;
+            background-color: transparent;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 30px auto 0;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #1976D2;
+        }
+
+        /* --- MEDIA QUERIES --- */
+        @media (max-width: 1024px) {
+            h1 {
+                font-size: 1.8em;
+            }
+            model-viewer {
+                height: 300px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.6em;
+            }
+            .column {
+                min-width: 90%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.4em;
+            }
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+</head>
+<body>
+    <div id="Title">
+        <h1>Gemelo Digital</h1>
+        <img src="/static/Images/LogoGCA.png" alt="Logo" class="logo">
+    </div>
+
+    <div id="main-content">
+        <!-- Columna 1 -->
+        <div class="column">
+            <h2 style="color: #696767">Entradas</h2>
+            <div class="chart-container"><canvas id="accelerationChart"></canvas></div>
+            <div class="chart-container"><canvas id="voltageChart"></canvas></div>
+            <div class="chart-container"><canvas id="altitudChart"></canvas></div>
+        </div>
+
+        <!-- Columna 2 -->
+        <div class="column">
+            <model-viewer src="/static/models/Bicineta.glb"
+                          alt="Modelo"
+                          auto-rotate
+                          camera-controls
+                          disable-zoom
+                          interaction-prompt="none">
+            </model-viewer>
+        </div>
+
+        <!-- Columna 3 -->
+        <div class="column">
+            <h2 style="color: #696767">Salidas Predichas</h2>
+            <div class="chart-container"><canvas id="predictedCurrentChart"></canvas></div>
+            <div class="chart-container"><canvas id="predictedSpeedChart"></canvas></div>
+        </div>
+    </div>
+
+    <button onclick="window.location.href='/menu'">Volver al Menú</button>
+
+    <script>
+        const charts = {
+            acceleration: new Chart(document.getElementById('accelerationChart').getContext('2d'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Aceleración (V)', data: [], borderColor: '#FFCE56', fill: false }] },
+                options: { responsive: true, scales: { y: { beginAtZero: true } } }
+            }),
+            voltage: new Chart(document.getElementById('voltageChart').getContext('2d'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Voltaje (V)', data: [], borderColor: '#FF6384', fill: false }] },
+                options: { responsive: true, scales: { y: { beginAtZero: true } } }
+            }),
+            altitud: new Chart(document.getElementById('altitudChart').getContext('2d'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Altitud (m)', data: [], borderColor: '#FF9F40', fill: false }] },
+                options: { responsive: true, scales: { y: { beginAtZero: false } } }
+            }),
+            predictedCurrent: new Chart(document.getElementById('predictedCurrentChart').getContext('2d'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Corriente Predicha (A)', data: [], borderColor: '#36A2EB', fill: false }] },
+                options: { responsive: true, scales: { y: { beginAtZero: true } } }
+            }),
+            predictedSpeed: new Chart(document.getElementById('predictedSpeedChart').getContext('2d'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Velocidad Predicha (RPM)', data: [], borderColor: '#4BC0C0', fill: false }] },
+                options: { responsive: true, scales: { y: { beginAtZero: true } } }
+            })
+        };
+
+        async function updateCharts() {
+            try {
+                const response = await fetch('/data');
+                const sensorData = await response.json();
+                const twinResponse = await fetch('/digital_twin_data');
+                const twinData = await twinResponse.json();
+
+                ['acceleration', 'voltage', 'altitud'].forEach(topic => {
+                    if (sensorData[topic]) {
+                        charts[topic].data.labels = sensorData[topic].map(d => d.time);
+                        charts[topic].data.datasets[0].data = sensorData[topic].map(d => d.value);
+                        charts[topic].update();
+                    }
+                });
+
+                ['predictedCurrent', 'predictedSpeed'].forEach(topic => {
+                    const key = topic === 'predictedCurrent' ? 'predicted_current' : 'predicted_speed';
+                    if (twinData[key]) {
+                        charts[topic].data.labels = twinData[key].map(d => d.time);
+                        charts[topic].data.datasets[0].data = twinData[key].map(d => d.value);
+                        charts[topic].update();
+                    }
+                });
+            } catch (error) {
+                console.error('Error al actualizar gráficos:', error);
+            }
+        }
+
+        setInterval(updateCharts, 500);
+        updateCharts();
+    </script>
+</body>
+</html>
